@@ -1,8 +1,11 @@
 //! Integration tests that verify generated code compiles and is correct
 
-use typespec_api::{parse, codegen::{Generator, Language, Side}};
-use tempfile::TempDir;
 use std::process::Command;
+use tempfile::TempDir;
+use typespec_api::{
+    codegen::{Generator, Language, Side},
+    parse,
+};
 
 // ============================================================================
 // Helper Functions
@@ -12,7 +15,8 @@ fn generate_and_check_rust(source: &str) -> Result<(), String> {
     let file = parse(source).map_err(|e| format!("Parse error: {}", e))?;
     let temp_dir = TempDir::new().map_err(|e| format!("Failed to create temp dir: {}", e))?;
     let generator = Generator::new(&file, temp_dir.path(), "test_api");
-    generator.generate(Language::Rust, Side::Both)
+    generator
+        .generate(Language::Rust, Side::Both)
         .map_err(|e| format!("Generation error: {}", e))?;
 
     // Run cargo check on the generated code

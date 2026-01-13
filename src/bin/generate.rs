@@ -4,7 +4,10 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use typespec_api::{codegen::{Generator, Language, Side}, parse, TypeSpecFile};
+use typespec_api::{
+    codegen::{Generator, Language, Side},
+    parse, TypeSpecFile,
+};
 
 #[derive(Parser)]
 #[command(name = "tsp-gen")]
@@ -105,7 +108,8 @@ fn main() -> Result<()> {
     let mut resolved = HashSet::new();
 
     for input in &cli.input {
-        let canonical = input.canonicalize()
+        let canonical = input
+            .canonicalize()
             .with_context(|| format!("Failed to resolve path {}", input.display()))?;
 
         // Skip if already processed
@@ -117,8 +121,8 @@ fn main() -> Result<()> {
         let source = std::fs::read_to_string(&canonical)
             .with_context(|| format!("Failed to read {}", input.display()))?;
 
-        let file = parse(&source)
-            .with_context(|| format!("Failed to parse {}", input.display()))?;
+        let file =
+            parse(&source).with_context(|| format!("Failed to parse {}", input.display()))?;
 
         // Resolve imports relative to the input file's directory
         let base_dir = canonical.parent().unwrap_or(Path::new("."));

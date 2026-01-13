@@ -1,6 +1,6 @@
 //! Comprehensive parser tests for TypeSpec AST generation
 
-use typespec_api::{parse, ast::*};
+use typespec_api::{ast::*, parse};
 
 // ============================================================================
 // Model Parsing Tests
@@ -39,8 +39,8 @@ fn test_parse_model_with_optional_fields() {
     let model = file.models().next().unwrap();
 
     assert!(!model.properties[0].optional); // username
-    assert!(model.properties[1].optional);  // bio?
-    assert!(model.properties[2].optional);  // avatar?
+    assert!(model.properties[1].optional); // bio?
+    assert!(model.properties[2].optional); // avatar?
 }
 
 #[test]
@@ -59,8 +59,14 @@ fn test_parse_model_with_decorators() {
     let model = file.models().next().unwrap();
 
     assert!(model.decorators.iter().any(|d| d.name == "doc"));
-    assert!(model.properties[0].decorators.iter().any(|d| d.name == "key"));
-    assert!(model.properties[1].decorators.iter().any(|d| d.name == "minLength"));
+    assert!(model.properties[0]
+        .decorators
+        .iter()
+        .any(|d| d.name == "key"));
+    assert!(model.properties[1]
+        .decorators
+        .iter()
+        .any(|d| d.name == "minLength"));
 }
 
 #[test]
@@ -114,7 +120,7 @@ fn test_parse_model_with_spread() {
     let file = parse(source).unwrap();
     let user = file.models().find(|m| m.name == "User").unwrap();
 
-    assert_eq!(user.properties.len(), 2);  // id, name
+    assert_eq!(user.properties.len(), 2); // id, name
     assert_eq!(user.spread_refs.len(), 1); // ...Timestamps
 }
 
@@ -305,7 +311,9 @@ fn test_parse_array_types() {
     let file = parse(source).unwrap();
     let model = file.models().next().unwrap();
 
-    assert!(matches!(&model.properties[0].type_ref, TypeRef::Array(inner) if matches!(&**inner, TypeRef::Builtin(s) if s == "string")));
+    assert!(
+        matches!(&model.properties[0].type_ref, TypeRef::Array(inner) if matches!(&**inner, TypeRef::Builtin(s) if s == "string"))
+    );
 }
 
 #[test]
@@ -458,8 +466,14 @@ fn test_parse_decorator_number_arg() {
     let file = parse(source).unwrap();
     let model = file.models().next().unwrap();
 
-    assert!(model.properties[0].decorators.iter().any(|d| d.name == "minLength"));
-    assert!(model.properties[0].decorators.iter().any(|d| d.name == "maxLength"));
+    assert!(model.properties[0]
+        .decorators
+        .iter()
+        .any(|d| d.name == "minLength"));
+    assert!(model.properties[0]
+        .decorators
+        .iter()
+        .any(|d| d.name == "maxLength"));
 }
 
 #[test]

@@ -1,7 +1,9 @@
 //! Rust Code Generator
 
 use crate::ast::*;
-use crate::codegen::{build_model_map, build_scalar_map, resolve_properties, CodegenError, ModelMap, ScalarMap, Side};
+use crate::codegen::{
+    build_model_map, build_scalar_map, resolve_properties, CodegenError, ModelMap, ScalarMap, Side,
+};
 use convert_case::{Case, Casing};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -23,9 +25,16 @@ impl CodegenContext {
     }
 
     /// Register an inline enum and return its name
-    fn register_inline_enum(&self, model_name: &str, prop_name: &str, variants: &[String]) -> String {
+    fn register_inline_enum(
+        &self,
+        model_name: &str,
+        prop_name: &str,
+        variants: &[String],
+    ) -> String {
         let enum_name = format!("{}{}", model_name, prop_name.to_case(Case::Pascal));
-        self.inline_enums.borrow_mut().insert(enum_name.clone(), variants.to_vec());
+        self.inline_enums
+            .borrow_mut()
+            .insert(enum_name.clone(), variants.to_vec());
         enum_name
     }
 
@@ -100,14 +109,26 @@ fn generate_cargo_toml(package_name: &str, side: Side) -> Result<String, Codegen
     writeln!(out, r#"edition = "2021""#)?;
     writeln!(out)?;
     writeln!(out, "[dependencies]")?;
-    writeln!(out, r#"serde = {{ version = "1.0", features = ["derive"] }}"#)?;
+    writeln!(
+        out,
+        r#"serde = {{ version = "1.0", features = ["derive"] }}"#
+    )?;
     writeln!(out, r#"serde_json = "1.0""#)?;
-    writeln!(out, r#"chrono = {{ version = "0.4", features = ["serde"] }}"#)?;
-    writeln!(out, r#"uuid = {{ version = "1.0", features = ["serde", "v4"] }}"#)?;
+    writeln!(
+        out,
+        r#"chrono = {{ version = "0.4", features = ["serde"] }}"#
+    )?;
+    writeln!(
+        out,
+        r#"uuid = {{ version = "1.0", features = ["serde", "v4"] }}"#
+    )?;
     writeln!(out, r#"thiserror = "2""#)?;
 
     if matches!(side, Side::Client | Side::Both) {
-        writeln!(out, r#"reqwest = {{ version = "0.12", features = ["json"] }}"#)?;
+        writeln!(
+            out,
+            r#"reqwest = {{ version = "0.12", features = ["json"] }}"#
+        )?;
     }
 
     if matches!(side, Side::Server | Side::Both) {
@@ -139,7 +160,11 @@ fn generate_lib(side: Side) -> Result<String, CodegenError> {
     Ok(out)
 }
 
-fn generate_models(file: &TypeSpecFile, scalars: &ScalarMap, models: &ModelMap<'_>) -> Result<String, CodegenError> {
+fn generate_models(
+    file: &TypeSpecFile,
+    scalars: &ScalarMap,
+    models: &ModelMap<'_>,
+) -> Result<String, CodegenError> {
     let mut out = String::new();
     let ctx = CodegenContext::new();
 
@@ -169,7 +194,10 @@ fn generate_models(file: &TypeSpecFile, scalars: &ScalarMap, models: &ModelMap<'
         if let Some(desc) = get_description(&model.decorators) {
             writeln!(struct_defs, "/// {}", desc)?;
         }
-        writeln!(struct_defs, "#[derive(Debug, Clone, Serialize, Deserialize)]")?;
+        writeln!(
+            struct_defs,
+            "#[derive(Debug, Clone, Serialize, Deserialize)]"
+        )?;
         writeln!(struct_defs, "#[serde(rename_all = \"camelCase\")]")?;
         writeln!(struct_defs, "pub struct {} {{", model.name)?;
 
@@ -177,11 +205,21 @@ fn generate_models(file: &TypeSpecFile, scalars: &ScalarMap, models: &ModelMap<'
         let all_properties = resolve_properties(model, models);
 
         for prop in all_properties {
-            let rust_type = type_to_rust_with_context(&prop.type_ref, prop.optional, scalars, &ctx, &model.name, &prop.name);
+            let rust_type = type_to_rust_with_context(
+                &prop.type_ref,
+                prop.optional,
+                scalars,
+                &ctx,
+                &model.name,
+                &prop.name,
+            );
             let name = prop.name.to_case(Case::Snake);
 
             if prop.optional {
-                writeln!(struct_defs, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                writeln!(
+                    struct_defs,
+                    "    #[serde(skip_serializing_if = \"Option::is_none\")]"
+                )?;
             }
 
             // Handle name conflicts with Rust keywords
@@ -200,7 +238,10 @@ fn generate_models(file: &TypeSpecFile, scalars: &ScalarMap, models: &ModelMap<'
     // Generate inline enums first
     for (enum_name, variants) in ctx.get_inline_enums() {
         writeln!(out)?;
-        writeln!(out, "#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]")?;
+        writeln!(
+            out,
+            "#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]"
+        )?;
         writeln!(out, "pub enum {} {{", enum_name)?;
         for variant in &variants {
             let variant_name = variant.to_case(Case::Pascal);
@@ -238,11 +279,21 @@ fn write_generic_model(
     let all_properties = resolve_properties(model, models);
 
     for prop in all_properties {
-        let rust_type = type_to_rust_with_context(&prop.type_ref, prop.optional, scalars, &ctx, &model.name, &prop.name);
+        let rust_type = type_to_rust_with_context(
+            &prop.type_ref,
+            prop.optional,
+            scalars,
+            &ctx,
+            &model.name,
+            &prop.name,
+        );
         let name = prop.name.to_case(Case::Snake);
 
         if prop.optional {
-            writeln!(out, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+            writeln!(
+                out,
+                "    #[serde(skip_serializing_if = \"Option::is_none\")]"
+            )?;
         }
 
         let field_name = if is_rust_keyword(&name) {
@@ -269,7 +320,10 @@ fn generate_enums(file: &TypeSpecFile) -> Result<String, CodegenError> {
 
     for enum_def in file.enums() {
         writeln!(out)?;
-        writeln!(out, "#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]")?;
+        writeln!(
+            out,
+            "#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]"
+        )?;
         writeln!(out, "pub enum {} {{", enum_def.name)?;
 
         for member in &enum_def.members {
@@ -313,7 +367,9 @@ fn generate_client(file: &TypeSpecFile, scalars: &ScalarMap) -> Result<String, C
     writeln!(out)?;
 
     // Error type
-    writeln!(out, r#"
+    writeln!(
+        out,
+        r#"
 #[derive(Debug, Error)]
 pub enum ApiError {{
     #[error("HTTP error: {{0}}")]
@@ -322,10 +378,13 @@ pub enum ApiError {{
     #[error("API error: {{status}} - {{message}}")]
     Api {{ status: u16, code: String, message: String }},
 }}
-"#)?;
+"#
+    )?;
 
     // Base client
-    writeln!(out, r#"
+    writeln!(
+        out,
+        r#"
 pub struct BaseClient {{
     client: Client,
     base_url: String,
@@ -390,7 +449,8 @@ impl BaseClient {{
         Ok(resp.json().await?)
     }}
 }}
-"#)?;
+"#
+    )?;
 
     // Service clients
     for iface in file.interfaces() {
@@ -467,13 +527,20 @@ impl BaseClient {{
             }
 
             // Make request
-            let has_body = op.params.iter().any(|p| has_decorator(&p.decorators, "body"));
+            let has_body = op
+                .params
+                .iter()
+                .any(|p| has_decorator(&p.decorators, "body"));
 
             writeln!(
                 out,
                 "        self.client.request(Method::{}, &path, {}).await",
                 method,
-                if has_body { "Some(body)" } else { "None::<&()>" }
+                if has_body {
+                    "Some(body)"
+                } else {
+                    "None::<&()>"
+                }
             )?;
 
             writeln!(out, "    }}")?;
@@ -491,20 +558,28 @@ fn generate_server(file: &TypeSpecFile, scalars: &ScalarMap) -> Result<String, C
     writeln!(out, "//! Auto-generated server handlers from TypeSpec.")?;
     writeln!(out, "//! DO NOT EDIT.")?;
     writeln!(out, "//!")?;
-    writeln!(out, "//! Implement the trait to provide your business logic.")?;
+    writeln!(
+        out,
+        "//! Implement the trait to provide your business logic."
+    )?;
     writeln!(out)?;
     writeln!(out, "#![allow(unused_imports)]")?;
     writeln!(out)?;
     writeln!(out, "use crate::models::*;")?;
     writeln!(out, "use crate::enums::*;")?;
     writeln!(out, "use async_trait::async_trait;")?;
-    writeln!(out, "use axum::{{extract::{{Path, Query, State}}, http::StatusCode, Json, Router}};")?;
+    writeln!(
+        out,
+        "use axum::{{extract::{{Path, Query, State}}, http::StatusCode, Json, Router}};"
+    )?;
     writeln!(out, "use std::sync::Arc;")?;
     writeln!(out, "use uuid::Uuid;")?;
     writeln!(out)?;
 
     // Error type
-    writeln!(out, r#"
+    writeln!(
+        out,
+        r#"
 #[derive(Debug, serde::Serialize)]
 pub struct ApiError {{
     pub status: u16,
@@ -518,7 +593,8 @@ impl axum::response::IntoResponse for ApiError {{
         (status, Json(self)).into_response()
     }}
 }}
-"#)?;
+"#
+    )?;
 
     // Handler traits
     for iface in file.interfaces() {
@@ -583,9 +659,15 @@ pub fn type_to_rust(type_ref: &TypeRef, optional: bool, scalars: &ScalarMap) -> 
             let base_name = type_to_rust(base, false, scalars);
             // Handle Record<T> -> HashMap<String, T>
             if base_name == "Record" && args.len() == 1 {
-                format!("std::collections::HashMap<String, {}>", type_to_rust(&args[0], false, scalars))
+                format!(
+                    "std::collections::HashMap<String, {}>",
+                    type_to_rust(&args[0], false, scalars)
+                )
             } else {
-                let args_str: Vec<_> = args.iter().map(|a| type_to_rust(a, false, scalars)).collect();
+                let args_str: Vec<_> = args
+                    .iter()
+                    .map(|a| type_to_rust(a, false, scalars))
+                    .collect();
                 format!("{}<{}>", base_name, args_str.join(", "))
             }
         }
@@ -612,31 +694,44 @@ fn type_to_rust_with_context(
 ) -> String {
     let base = match type_ref {
         TypeRef::Builtin(name) => builtin_to_rust(name),
-        TypeRef::Named(name) => {
-            match name.as_str() {
-                "uuid" => "Uuid".to_string(),
-                "email" | "url" => "String".to_string(),
-                _ => {
-                    if let Some(base_type) = scalars.get(name) {
-                        builtin_to_rust(base_type)
-                    } else {
-                        name.clone()
-                    }
+        TypeRef::Named(name) => match name.as_str() {
+            "uuid" => "Uuid".to_string(),
+            "email" | "url" => "String".to_string(),
+            _ => {
+                if let Some(base_type) = scalars.get(name) {
+                    builtin_to_rust(base_type)
+                } else {
+                    name.clone()
                 }
             }
-        }
+        },
         TypeRef::Qualified(parts) => parts.last().cloned().unwrap_or_default(),
-        TypeRef::Array(inner) => format!("Vec<{}>", type_to_rust_with_context(inner, false, scalars, ctx, model_name, prop_name)),
+        TypeRef::Array(inner) => format!(
+            "Vec<{}>",
+            type_to_rust_with_context(inner, false, scalars, ctx, model_name, prop_name)
+        ),
         TypeRef::Generic { base, args } => {
-            let base_name = type_to_rust_with_context(base, false, scalars, ctx, model_name, prop_name);
+            let base_name =
+                type_to_rust_with_context(base, false, scalars, ctx, model_name, prop_name);
             if base_name == "Record" && args.len() == 1 {
-                format!("HashMap<String, {}>", type_to_rust_with_context(&args[0], false, scalars, ctx, model_name, prop_name))
+                format!(
+                    "HashMap<String, {}>",
+                    type_to_rust_with_context(&args[0], false, scalars, ctx, model_name, prop_name)
+                )
             } else {
-                let args_str: Vec<_> = args.iter().map(|a| type_to_rust_with_context(a, false, scalars, ctx, model_name, prop_name)).collect();
+                let args_str: Vec<_> = args
+                    .iter()
+                    .map(|a| {
+                        type_to_rust_with_context(a, false, scalars, ctx, model_name, prop_name)
+                    })
+                    .collect();
                 format!("{}<{}>", base_name, args_str.join(", "))
             }
         }
-        TypeRef::Optional(inner) => format!("Option<{}>", type_to_rust_with_context(inner, false, scalars, ctx, model_name, prop_name)),
+        TypeRef::Optional(inner) => format!(
+            "Option<{}>",
+            type_to_rust_with_context(inner, false, scalars, ctx, model_name, prop_name)
+        ),
         TypeRef::Union(variants) => {
             // Check if all variants are string literals -> generate inline enum
             let string_literals: Vec<String> = variants

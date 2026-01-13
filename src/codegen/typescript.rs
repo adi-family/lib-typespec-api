@@ -1,7 +1,9 @@
 //! TypeScript Code Generator
 
 use crate::ast::*;
-use crate::codegen::{build_model_map, build_scalar_map, resolve_properties, CodegenError, ModelMap, ScalarMap, Side};
+use crate::codegen::{
+    build_model_map, build_scalar_map, resolve_properties, CodegenError, ModelMap, ScalarMap, Side,
+};
 use convert_case::{Case, Casing};
 use std::fmt::Write;
 use std::fs;
@@ -56,7 +58,11 @@ pub fn generate(
     Ok(generated)
 }
 
-fn generate_models(file: &TypeSpecFile, _scalars: &ScalarMap, models: &ModelMap<'_>) -> Result<String, CodegenError> {
+fn generate_models(
+    file: &TypeSpecFile,
+    _scalars: &ScalarMap,
+    models: &ModelMap<'_>,
+) -> Result<String, CodegenError> {
     let mut out = String::new();
 
     writeln!(out, "/**")?;
@@ -139,7 +145,9 @@ fn generate_client(file: &TypeSpecFile) -> Result<String, CodegenError> {
     writeln!(out)?;
 
     // Base client
-    writeln!(out, r#"
+    writeln!(
+        out,
+        r#"
 export class ApiError extends Error {{
   constructor(
     public statusCode: number,
@@ -203,7 +211,8 @@ export class BaseClient {{
     return resp.json();
   }}
 }}
-"#)?;
+"#
+    )?;
 
     // Service clients
     for iface in file.interfaces() {
@@ -244,7 +253,8 @@ export class BaseClient {{
             for param in &op.params {
                 if has_decorator(&param.decorators, "path") {
                     let name = param.name.to_case(Case::Camel);
-                    path_expr = path_expr.replace(&format!("{{{}}}", param.name), &format!("${{{}}}", name));
+                    path_expr = path_expr
+                        .replace(&format!("{{{}}}", param.name), &format!("${{{}}}", name));
                 }
             }
             writeln!(out, "    const path = {};", path_expr)?;
@@ -404,7 +414,7 @@ pub fn type_to_typescript(type_ref: &TypeRef) -> String {
                 "uuid" => "string".to_string(),  // uuid scalar extends string
                 "email" => "string".to_string(), // email scalar extends string
                 "url" => "string".to_string(),   // url scalar extends string
-                _ => name.clone(), // Don't add Models. prefix, types are local
+                _ => name.clone(),               // Don't add Models. prefix, types are local
             }
         }
         TypeRef::Qualified(parts) => format!("Models.{}", parts.last().unwrap_or(&String::new())),

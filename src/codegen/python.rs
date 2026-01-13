@@ -1,7 +1,9 @@
 //! Python Code Generator
 
 use crate::ast::*;
-use crate::codegen::{build_model_map, build_scalar_map, resolve_properties, CodegenError, ModelMap, ScalarMap, Side};
+use crate::codegen::{
+    build_model_map, build_scalar_map, resolve_properties, CodegenError, ModelMap, ScalarMap, Side,
+};
 use convert_case::{Case, Casing};
 use std::fmt::Write;
 use std::fs;
@@ -62,18 +64,28 @@ pub fn generate(
     Ok(generated)
 }
 
-fn generate_models(file: &TypeSpecFile, scalars: &ScalarMap, models: &ModelMap<'_>) -> Result<String, CodegenError> {
+fn generate_models(
+    file: &TypeSpecFile,
+    scalars: &ScalarMap,
+    models: &ModelMap<'_>,
+) -> Result<String, CodegenError> {
     let mut out = String::new();
 
-    writeln!(out, r#""""
+    writeln!(
+        out,
+        r#""""
 Auto-generated models from TypeSpec.
 DO NOT EDIT.
-""""#)?;
+""""#
+    )?;
     writeln!(out)?;
     writeln!(out, "from __future__ import annotations")?;
     writeln!(out, "from dataclasses import dataclass, field")?;
     writeln!(out, "from datetime import datetime")?;
-    writeln!(out, "from typing import Any, Optional, List, Dict, Literal, TypeVar, Generic")?;
+    writeln!(
+        out,
+        "from typing import Any, Optional, List, Dict, Literal, TypeVar, Generic"
+    )?;
     writeln!(out, "from uuid import UUID")?;
     writeln!(out)?;
     writeln!(out, "T = TypeVar('T')")?;
@@ -134,7 +146,11 @@ DO NOT EDIT.
         // Add from_dict method
         writeln!(out)?;
         writeln!(out, "    @classmethod")?;
-        writeln!(out, "    def from_dict(cls, data: Dict[str, Any]) -> \"{}\":", model.name)?;
+        writeln!(
+            out,
+            "    def from_dict(cls, data: Dict[str, Any]) -> \"{}\":",
+            model.name
+        )?;
         writeln!(out, "        return cls(")?;
         for prop in &all_properties {
             let name = prop.name.to_case(Case::Snake);
@@ -150,10 +166,13 @@ DO NOT EDIT.
 fn generate_enums(file: &TypeSpecFile) -> Result<String, CodegenError> {
     let mut out = String::new();
 
-    writeln!(out, r#""""
+    writeln!(
+        out,
+        r#""""
 Auto-generated enums from TypeSpec.
 DO NOT EDIT.
-""""#)?;
+""""#
+    )?;
     writeln!(out)?;
     writeln!(out, "from enum import Enum")?;
     writeln!(out)?;
@@ -183,10 +202,13 @@ DO NOT EDIT.
 fn generate_client(file: &TypeSpecFile, scalars: &ScalarMap) -> Result<String, CodegenError> {
     let mut out = String::new();
 
-    writeln!(out, r#""""
+    writeln!(
+        out,
+        r#""""
 Auto-generated API client from TypeSpec.
 DO NOT EDIT.
-""""#)?;
+""""#
+    )?;
     writeln!(out)?;
     writeln!(out, "from __future__ import annotations")?;
     writeln!(out, "import httpx")?;
@@ -196,7 +218,9 @@ DO NOT EDIT.
     writeln!(out)?;
 
     // Base client
-    writeln!(out, r#"
+    writeln!(
+        out,
+        r#"
 class ApiError(Exception):
     def __init__(self, status_code: int, message: str):
         self.status_code = status_code
@@ -232,7 +256,8 @@ class BaseClient:
         if resp.status_code == 204:
             return None
         return resp.json()
-"#)?;
+"#
+    )?;
 
     // Service clients
     for iface in file.interfaces() {
@@ -262,7 +287,12 @@ class BaseClient:
                 } else if has_decorator(&param.decorators, "query") {
                     let ty = type_to_python(&param.type_ref, scalars);
                     if param.optional {
-                        write!(out, ", {}: Optional[{}] = None", param.name.to_case(Case::Snake), ty)?;
+                        write!(
+                            out,
+                            ", {}: Optional[{}] = None",
+                            param.name.to_case(Case::Snake),
+                            ty
+                        )?;
                     } else {
                         write!(out, ", {}: {}", param.name.to_case(Case::Snake), ty)?;
                     }
@@ -305,9 +335,16 @@ class BaseClient:
             }
 
             // Make request
-            let has_body = op.params.iter().any(|p| has_decorator(&p.decorators, "body"));
+            let has_body = op
+                .params
+                .iter()
+                .any(|p| has_decorator(&p.decorators, "body"));
 
-            write!(out, "        result = await self._client._request(\"{}\", path", method)?;
+            write!(
+                out,
+                "        result = await self._client._request(\"{}\", path",
+                method
+            )?;
             if has_body {
                 write!(out, ", json=body.to_dict()")?;
             }
@@ -325,11 +362,15 @@ class BaseClient:
                     writeln!(out, "        return result")?;
                 } else if ty.starts_with("List[") {
                     // Extract inner type from List[X]
-                    let inner = &ty[5..ty.len()-1];
+                    let inner = &ty[5..ty.len() - 1];
                     if is_primitive_type(inner) {
                         writeln!(out, "        return result")?;
                     } else {
-                        writeln!(out, "        return [{}.from_dict(item) for item in result]", inner)?;
+                        writeln!(
+                            out,
+                            "        return [{}.from_dict(item) for item in result]",
+                            inner
+                        )?;
                     }
                 } else {
                     writeln!(out, "        return {}.from_dict(result)", ty)?;
@@ -358,12 +399,15 @@ class BaseClient:
 fn generate_server(file: &TypeSpecFile, scalars: &ScalarMap) -> Result<String, CodegenError> {
     let mut out = String::new();
 
-    writeln!(out, r#""""
+    writeln!(
+        out,
+        r#""""
 Auto-generated server handlers from TypeSpec.
 DO NOT EDIT.
 
 Implement the abstract methods in a subclass.
-""""#)?;
+""""#
+    )?;
     writeln!(out)?;
     writeln!(out, "from abc import ABC, abstractmethod")?;
     writeln!(out, "from typing import Any, Optional")?;
@@ -459,7 +503,10 @@ pub fn type_to_python(type_ref: &TypeRef, scalars: &ScalarMap) -> String {
                     .collect();
                 format!("Literal[{}]", literals.join(", "))
             } else {
-                let types: Vec<_> = variants.iter().map(|v| type_to_python(v, scalars)).collect();
+                let types: Vec<_> = variants
+                    .iter()
+                    .map(|v| type_to_python(v, scalars))
+                    .collect();
                 types.join(" | ")
             }
         }
@@ -519,7 +566,10 @@ fn has_decorator(decorators: &[Decorator], name: &str) -> bool {
 
 /// Extract return type from response wrappers like `{ @statusCode: 200; @body body: T } | ApiError`
 /// Returns (display_type, body_type) where body_type is the actual type to deserialize
-fn extract_return_type(type_ref: &Option<TypeRef>, scalars: &ScalarMap) -> (String, Option<String>) {
+fn extract_return_type(
+    type_ref: &Option<TypeRef>,
+    scalars: &ScalarMap,
+) -> (String, Option<String>) {
     match type_ref {
         None => ("None".to_string(), None),
         Some(TypeRef::Union(variants)) => {
@@ -547,7 +597,10 @@ fn extract_return_type(type_ref: &Option<TypeRef>, scalars: &ScalarMap) -> (Stri
                 }
             }
             // No body found, return generic type
-            let types: Vec<_> = variants.iter().map(|v| type_to_python(v, scalars)).collect();
+            let types: Vec<_> = variants
+                .iter()
+                .map(|v| type_to_python(v, scalars))
+                .collect();
             let combined = types.join(" | ");
             (combined.clone(), None)
         }
@@ -572,10 +625,7 @@ fn extract_return_type(type_ref: &Option<TypeRef>, scalars: &ScalarMap) -> (Stri
 fn is_primitive_type(ty: &str) -> bool {
     matches!(
         ty,
-        "str" | "int" | "float" | "bool" | "bytes" | "None"
-            | "Any"
-            | "datetime"
-            | "Dict[str, Any]"
+        "str" | "int" | "float" | "bool" | "bytes" | "None" | "Any" | "datetime" | "Dict[str, Any]"
     ) || ty.starts_with("Literal[")
         || ty.starts_with("Dict[")
 }

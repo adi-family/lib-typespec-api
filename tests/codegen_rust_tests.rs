@@ -1,8 +1,11 @@
 //! Comprehensive Rust code generation tests
 
-use typespec_api::{parse, codegen::{Generator, Language, Side}};
 use std::path::Path;
 use tempfile::TempDir;
+use typespec_api::{
+    codegen::{Generator, Language, Side},
+    parse,
+};
 
 // ============================================================================
 // Helper Functions
@@ -12,7 +15,9 @@ fn generate_rust(source: &str, side: Side) -> (TempDir, Vec<String>) {
     let file = parse(source).expect("Failed to parse TypeSpec");
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let generator = Generator::new(&file, temp_dir.path(), "test_api");
-    let files = generator.generate(Language::Rust, side).expect("Failed to generate");
+    let files = generator
+        .generate(Language::Rust, side)
+        .expect("Failed to generate");
     (temp_dir, files)
 }
 
@@ -459,7 +464,7 @@ fn test_generate_cargo_toml() {
     assert!(cargo.contains("[package]"));
     assert!(cargo.contains("serde"));
     assert!(cargo.contains("reqwest")); // client
-    assert!(cargo.contains("axum"));    // server
+    assert!(cargo.contains("axum")); // server
 }
 
 #[test]

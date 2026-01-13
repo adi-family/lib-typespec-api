@@ -2,10 +2,10 @@
 //!
 //! Generate Python, TypeScript, Rust code, and OpenAPI specs from TypeSpec AST.
 
-pub mod python;
-pub mod typescript;
-pub mod rust;
 pub mod openapi;
+pub mod python;
+pub mod rust;
+pub mod typescript;
 
 use crate::ast::{Model, Property, TypeRef, TypeSpecFile};
 use std::collections::HashMap;
@@ -22,7 +22,9 @@ pub type ModelMap<'a> = HashMap<&'a str, &'a Model>;
 pub fn build_scalar_map(file: &TypeSpecFile) -> ScalarMap {
     file.scalars()
         .filter_map(|s| {
-            s.extends.as_ref().map(|base| (s.name.clone(), base.clone()))
+            s.extends
+                .as_ref()
+                .map(|base| (s.name.clone(), base.clone()))
         })
         .collect()
 }
@@ -112,17 +114,36 @@ impl<'a> Generator<'a> {
 
         match language {
             Language::Python => {
-                generated.extend(python::generate(self.file, self.output_dir, self.package_name, side)?);
+                generated.extend(python::generate(
+                    self.file,
+                    self.output_dir,
+                    self.package_name,
+                    side,
+                )?);
             }
             Language::TypeScript => {
-                generated.extend(typescript::generate(self.file, self.output_dir, self.package_name, side)?);
+                generated.extend(typescript::generate(
+                    self.file,
+                    self.output_dir,
+                    self.package_name,
+                    side,
+                )?);
             }
             Language::Rust => {
-                generated.extend(rust::generate(self.file, self.output_dir, self.package_name, side)?);
+                generated.extend(rust::generate(
+                    self.file,
+                    self.output_dir,
+                    self.package_name,
+                    side,
+                )?);
             }
             Language::OpenApi => {
                 // OpenAPI ignores side parameter - it generates the full spec
-                generated.extend(openapi::generate(self.file, self.output_dir, self.package_name)?);
+                generated.extend(openapi::generate(
+                    self.file,
+                    self.output_dir,
+                    self.package_name,
+                )?);
             }
         }
 

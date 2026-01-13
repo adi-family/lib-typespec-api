@@ -131,7 +131,8 @@ impl Parser {
                                     declarations.push(Declaration::Enum(self.parse_enum(decs)?));
                                 }
                                 Some(Token::Interface) => {
-                                    declarations.push(Declaration::Interface(self.parse_interface(decs)?));
+                                    declarations
+                                        .push(Declaration::Interface(self.parse_interface(decs)?));
                                 }
                                 _ => break,
                             }

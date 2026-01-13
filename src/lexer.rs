@@ -120,8 +120,12 @@ mod tests {
         "#;
 
         let tokens = tokenize(input);
-        assert!(tokens.iter().any(|(t, _)| matches!(t, Token::Decorator(d) if d == "route")));
+        assert!(tokens
+            .iter()
+            .any(|(t, _)| matches!(t, Token::Decorator(d) if d == "route")));
         assert!(tokens.iter().any(|(t, _)| matches!(t, Token::Model)));
-        assert!(tokens.iter().any(|(t, _)| matches!(t, Token::Ident(s) if s == "User")));
+        assert!(tokens
+            .iter()
+            .any(|(t, _)| matches!(t, Token::Ident(s) if s == "User")));
     }
 }

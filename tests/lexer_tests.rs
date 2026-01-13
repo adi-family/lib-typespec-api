@@ -218,10 +218,16 @@ fn test_tokenize_interface_definition() {
     "#;
     let tokens = tokenize(input);
 
-    assert!(tokens.iter().any(|(t, _)| matches!(t, Token::Decorator(s) if s == "route")));
-    assert!(tokens.iter().any(|(t, _)| matches!(t, Token::StringLit(s) if s == "/users")));
+    assert!(tokens
+        .iter()
+        .any(|(t, _)| matches!(t, Token::Decorator(s) if s == "route")));
+    assert!(tokens
+        .iter()
+        .any(|(t, _)| matches!(t, Token::StringLit(s) if s == "/users")));
     assert!(tokens.iter().any(|(t, _)| matches!(t, Token::Interface)));
-    assert!(tokens.iter().any(|(t, _)| matches!(t, Token::Decorator(s) if s == "get")));
+    assert!(tokens
+        .iter()
+        .any(|(t, _)| matches!(t, Token::Decorator(s) if s == "get")));
 }
 
 #[test]

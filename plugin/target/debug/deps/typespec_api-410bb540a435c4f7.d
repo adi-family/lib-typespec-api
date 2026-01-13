@@ -1,0 +1,13 @@
+/Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/plugin/target/debug/deps/typespec_api-410bb540a435c4f7.d: /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/lib.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/lexer.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/parser.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/ast.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/mod.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/python.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/typescript.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/rust.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/openapi.rs
+
+/Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/plugin/target/debug/deps/libtypespec_api-410bb540a435c4f7.rmeta: /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/lib.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/lexer.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/parser.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/ast.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/mod.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/python.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/typescript.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/rust.rs /Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/openapi.rs
+
+/Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/lib.rs:
+/Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/lexer.rs:
+/Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/parser.rs:
+/Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/ast.rs:
+/Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/mod.rs:
+/Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/python.rs:
+/Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/typescript.rs:
+/Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/rust.rs:
+/Users/mgorunuch/projects/adi-family/cli/crates/lib/lib-typespec-api/src/codegen/openapi.rs:

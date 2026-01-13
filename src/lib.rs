@@ -4,14 +4,14 @@
 //! - Parses TypeSpec (.tsp) files directly
 //! - Generates Python, TypeScript, and Rust code
 
-pub mod lexer;
-pub mod parser;
 pub mod ast;
 pub mod codegen;
+pub mod lexer;
+pub mod parser;
 
 pub use ast::*;
-pub use parser::parse;
 pub use codegen::{Generator, Language, Side};
+pub use parser::parse;
 
 #[cfg(test)]
 mod tests {
@@ -99,7 +99,11 @@ mod tests {
         assert_eq!(enum_def.members.len(), 3);
 
         // Check that inProgress has explicit value
-        let in_progress = enum_def.members.iter().find(|m| m.name == "inProgress").unwrap();
+        let in_progress = enum_def
+            .members
+            .iter()
+            .find(|m| m.name == "inProgress")
+            .unwrap();
         assert!(matches!(&in_progress.value, Some(ast::Value::String(s)) if s == "in_progress"));
     }
 

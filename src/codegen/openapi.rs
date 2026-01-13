@@ -3,7 +3,9 @@
 //! Generates OpenAPI 3.0 specification from TypeSpec AST.
 
 use crate::ast::*;
-use crate::codegen::{build_model_map, build_scalar_map, resolve_properties, CodegenError, ModelMap, ScalarMap};
+use crate::codegen::{
+    build_model_map, build_scalar_map, resolve_properties, CodegenError, ModelMap, ScalarMap,
+};
 use convert_case::{Case, Casing};
 use serde_json::{json, Map, Value};
 use std::fs;
@@ -24,8 +26,8 @@ pub fn generate(
 
     // Write JSON
     let json_path = output_dir.join("openapi.json");
-    let json_content = serde_json::to_string_pretty(&spec)
-        .map_err(|e| CodegenError::Generation(e.to_string()))?;
+    let json_content =
+        serde_json::to_string_pretty(&spec).map_err(|e| CodegenError::Generation(e.to_string()))?;
     fs::write(&json_path, json_content)?;
     generated.push(json_path.display().to_string());
 
@@ -200,7 +202,9 @@ fn type_to_schema(type_ref: &TypeRef, scalars: &ScalarMap) -> Value {
         }
         TypeRef::Union(variants) => {
             // Check if all string literals
-            let all_strings = variants.iter().all(|v| matches!(v, TypeRef::StringLiteral(_)));
+            let all_strings = variants
+                .iter()
+                .all(|v| matches!(v, TypeRef::StringLiteral(_)));
             if all_strings {
                 let values: Vec<Value> = variants
                     .iter()
@@ -217,7 +221,10 @@ fn type_to_schema(type_ref: &TypeRef, scalars: &ScalarMap) -> Value {
                     "enum": values
                 })
             } else {
-                let schemas: Vec<Value> = variants.iter().map(|v| type_to_schema(v, scalars)).collect();
+                let schemas: Vec<Value> = variants
+                    .iter()
+                    .map(|v| type_to_schema(v, scalars))
+                    .collect();
                 json!({ "oneOf": schemas })
             }
         }
@@ -264,7 +271,9 @@ fn builtin_to_schema(name: &str) -> Value {
         "string" => json!({ "type": "string" }),
         "int8" | "int16" | "int32" => json!({ "type": "integer", "format": "int32" }),
         "int64" => json!({ "type": "integer", "format": "int64" }),
-        "uint8" | "uint16" | "uint32" => json!({ "type": "integer", "format": "int32", "minimum": 0 }),
+        "uint8" | "uint16" | "uint32" => {
+            json!({ "type": "integer", "format": "int32", "minimum": 0 })
+        }
         "uint64" => json!({ "type": "integer", "format": "int64", "minimum": 0 }),
         "float32" => json!({ "type": "number", "format": "float" }),
         "float64" => json!({ "type": "number", "format": "double" }),
@@ -341,40 +350,52 @@ fn operation_to_openapi(op: &Operation, interface_name: &str, scalars: &ScalarMa
         let (status_code, body_schema) = extract_response_info(ret, scalars);
 
         if let Some(schema) = body_schema {
-            responses.insert(status_code.clone(), json!({
-                "description": "Successful response",
-                "content": {
-                    "application/json": {
-                        "schema": schema
+            responses.insert(
+                status_code.clone(),
+                json!({
+                    "description": "Successful response",
+                    "content": {
+                        "application/json": {
+                            "schema": schema
+                        }
                     }
-                }
-            }));
+                }),
+            );
         } else {
-            responses.insert(status_code, json!({
-                "description": "Successful response (no content)"
-            }));
+            responses.insert(
+                status_code,
+                json!({
+                    "description": "Successful response (no content)"
+                }),
+            );
         }
     } else {
-        responses.insert("200".to_string(), json!({
-            "description": "Successful response"
-        }));
+        responses.insert(
+            "200".to_string(),
+            json!({
+                "description": "Successful response"
+            }),
+        );
     }
 
     // Add error response
-    responses.insert("default".to_string(), json!({
-        "description": "Error response",
-        "content": {
-            "application/json": {
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "code": { "type": "string" },
-                        "message": { "type": "string" }
+    responses.insert(
+        "default".to_string(),
+        json!({
+            "description": "Error response",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "code": { "type": "string" },
+                            "message": { "type": "string" }
+                        }
                     }
                 }
             }
-        }
-    }));
+        }),
+    );
 
     operation
 }
