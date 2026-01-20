@@ -71,6 +71,16 @@ fn generate_models(
     writeln!(out, " */")?;
     writeln!(out)?;
 
+    // Import enums that may be referenced by models
+    let enum_names: Vec<_> = file.enums().map(|e| e.name.as_str()).collect();
+    if !enum_names.is_empty() {
+        writeln!(
+            out,
+            "import {{ {} }} from './enums';",
+            enum_names.join(", ")
+        )?;
+    }
+
     for model in file.models() {
         writeln!(out)?;
         if let Some(desc) = get_description(&model.decorators) {
