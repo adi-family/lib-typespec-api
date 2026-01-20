@@ -1,16 +1,22 @@
 //! TypeSpec Code Generator Plugin
 //!
-//! ADI plugin for generating code from TypeSpec definitions.
+//! ADI plugin for generating code from TypeSpec definitions with file watching support.
 
 use abi_stable::std_types::{ROption, RResult, RStr, RString, RVec};
+use chrono::Local;
 use lib_plugin_abi::{
     PluginContext, PluginInfo, PluginVTable, ServiceDescriptor, ServiceError, ServiceHandle,
     ServiceMethod, ServiceVTable, ServiceVersion,
 };
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use serde_json::json;
 use std::collections::HashSet;
 use std::ffi::c_void;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
+use std::time::Duration;
 use typespec_api::{
     codegen::{Generator, Language, Side},
     parse, TypeSpecFile,
@@ -18,6 +24,9 @@ use typespec_api::{
 
 /// Plugin-specific CLI service ID
 const SERVICE_CLI: &str = "adi.tsp-gen.cli";
+
+/// Global flag for watch mode termination
+static RUNNING: AtomicBool = AtomicBool::new(true);
 
 // === Plugin VTable Implementation ===
 
@@ -29,7 +38,7 @@ extern "C" fn plugin_info() -> PluginInfo {
         "tools",
     )
     .with_author("ADI Team")
-    .with_description("Generate code from TypeSpec definitions")
+    .with_description("Generate code from TypeSpec definitions with file watching")
     .with_min_host_version("0.8.0")
 }
 
@@ -101,7 +110,7 @@ extern "C" fn cli_invoke(
         }
         "list_commands" => {
             let commands = json!([
-                {"name": "generate", "description": "Generate code from TypeSpec files", "usage": "generate <input...> -l <language> [-o <output>] [-s <side>] [-p <package>]"},
+                {"name": "generate", "description": "Generate code from TypeSpec files", "usage": "generate <input...> -l <language> [-o <output>] [-s <side>] [-p <package>] [-w]"},
                 {"name": "languages", "description": "List supported languages", "usage": "languages"},
                 {"name": "help", "description": "Show help information", "usage": "help"}
             ]);
@@ -150,13 +159,39 @@ fn run_cli_command(context_json: &str) -> Result<String, String> {
 
 // === Command Implementations ===
 
+/// Parsed generation options
+struct GenerateOptions {
+    input_files: Vec<PathBuf>,
+    output_dir: PathBuf,
+    language: Language,
+    side: Side,
+    package: String,
+    watch: bool,
+}
+
 fn cmd_generate(args: &[&str]) -> Result<String, String> {
-    // Parse arguments
+    let opts = parse_generate_args(args)?;
+
+    if opts.watch {
+        cmd_generate_watch(&opts)
+    } else {
+        do_generate(
+            &opts.input_files,
+            &opts.output_dir,
+            opts.language,
+            opts.side,
+            &opts.package,
+        )
+    }
+}
+
+fn parse_generate_args(args: &[&str]) -> Result<GenerateOptions, String> {
     let mut input_files: Vec<PathBuf> = Vec::new();
     let mut output_dir = PathBuf::from("generated");
     let mut language: Option<Language> = None;
     let mut side = Side::Both;
     let mut package = String::from("api");
+    let mut watch = false;
 
     let mut i = 0;
     while i < args.len() {
@@ -189,6 +224,10 @@ fn cmd_generate(args: &[&str]) -> Result<String, String> {
                 package = args[i + 1].to_string();
                 i += 2;
             }
+            "-w" | "--watch" => {
+                watch = true;
+                i += 1;
+            }
             arg if arg.starts_with('-') => {
                 return Err(format!("Unknown option: {}", arg));
             }
@@ -207,11 +246,141 @@ fn cmd_generate(args: &[&str]) -> Result<String, String> {
 
     let language = language.ok_or("Missing required option: --language (-l)")?;
 
+    Ok(GenerateOptions {
+        input_files,
+        output_dir,
+        language,
+        side,
+        package,
+        watch,
+    })
+}
+
+/// Run code generation in watch mode
+fn cmd_generate_watch(opts: &GenerateOptions) -> Result<String, String> {
+    // Reset running flag
+    RUNNING.store(true, Ordering::SeqCst);
+
+    // Set up Ctrl+C handler
+    let _ = ctrlc::set_handler(|| {
+        RUNNING.store(false, Ordering::SeqCst);
+    });
+
+    // Collect directories to watch (parent dirs of input files)
+    let watch_dirs: HashSet<PathBuf> = opts
+        .input_files
+        .iter()
+        .filter_map(|f| {
+            f.canonicalize()
+                .ok()
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        })
+        .collect();
+
+    if watch_dirs.is_empty() {
+        return Err("No valid directories to watch".to_string());
+    }
+
+    // Initial generation
+    println!("TypeSpec Generator - Watch Mode");
+    println!("================================\n");
+
+    print!("Running initial generation... ");
+    let _ = io::stdout().flush();
+
+    match do_generate(
+        &opts.input_files,
+        &opts.output_dir,
+        opts.language,
+        opts.side,
+        &opts.package,
+    ) {
+        Ok(msg) => println!("done\n{}\n", msg),
+        Err(e) => println!("failed\nError: {}\n", e),
+    }
+
+    println!(
+        "Watching {} director{} for changes:",
+        watch_dirs.len(),
+        if watch_dirs.len() == 1 { "y" } else { "ies" }
+    );
+    for dir in &watch_dirs {
+        println!("  {}", dir.display());
+    }
+    println!("\nPress Ctrl+C to stop\n");
+
+    // Create watcher
+    let (tx, rx) = mpsc::channel();
+    let mut watcher = RecommendedWatcher::new(
+        move |res| {
+            let _ = tx.send(res);
+        },
+        Config::default().with_poll_interval(Duration::from_millis(500)),
+    )
+    .map_err(|e| format!("Failed to create watcher: {}", e))?;
+
+    // Watch all directories
+    for dir in &watch_dirs {
+        watcher
+            .watch(dir, RecursiveMode::Recursive)
+            .map_err(|e| format!("Failed to watch {}: {}", dir.display(), e))?;
+    }
+
+    // Watch loop
+    while RUNNING.load(Ordering::SeqCst) {
+        match rx.recv_timeout(Duration::from_millis(100)) {
+            Ok(Ok(event)) => {
+                // Filter for .tsp file changes
+                let tsp_changed = event
+                    .paths
+                    .iter()
+                    .any(|p| p.extension().map(|e| e == "tsp").unwrap_or(false));
+
+                if tsp_changed {
+                    let timestamp = Local::now().format("%H:%M:%S");
+                    println!("[{}] Change detected, regenerating...", timestamp);
+
+                    match do_generate(
+                        &opts.input_files,
+                        &opts.output_dir,
+                        opts.language,
+                        opts.side,
+                        &opts.package,
+                    ) {
+                        Ok(msg) => println!("{}\n", msg),
+                        Err(e) => println!("Error: {}\n", e),
+                    }
+                }
+            }
+            Ok(Err(e)) => {
+                eprintln!("Watch error: {}", e);
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                // Normal timeout, continue loop
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                break;
+            }
+        }
+    }
+
+    println!("\nWatch stopped.");
+    Ok(String::new())
+}
+
+/// Perform a single code generation run
+fn do_generate(
+    input_files: &[PathBuf],
+    output_dir: &Path,
+    language: Language,
+    side: Side,
+    package: &str,
+) -> Result<String, String> {
     // Parse all input files with import resolution
     let mut combined = TypeSpecFile::default();
     let mut resolved = HashSet::new();
 
-    for input in &input_files {
+    for input in input_files {
         let canonical = input
             .canonicalize()
             .map_err(|e| format!("Failed to resolve path {}: {}", input.display(), e))?;
@@ -249,17 +418,17 @@ fn cmd_generate(args: &[&str]) -> Result<String, String> {
         Language::OpenApi => "openapi",
     });
 
-    let generator = Generator::new(&combined, &output_subdir, &package);
+    let generator = Generator::new(&combined, &output_subdir, package);
     let generated = generator
         .generate(language, side)
         .map_err(|e| format!("Code generation failed: {}", e))?;
 
-    let mut output = format!("Generated {} files:\n", generated.len());
+    let mut output = format!("Generated {} files:", generated.len());
     for path in &generated {
-        output.push_str(&format!("  {}\n", path));
+        output.push_str(&format!("\n  {}", path));
     }
 
-    Ok(output.trim_end().to_string())
+    Ok(output)
 }
 
 fn cmd_languages() -> Result<String, String> {
@@ -280,7 +449,7 @@ Aliases:
 fn cmd_help() -> Result<String, String> {
     let help = r#"TypeSpec Generator - Generate code from TypeSpec definitions
 
-Usage: adi run adi.tsp-gen <command> [options]
+Usage: adi tsp-gen <command> [options]
 
 Commands:
   generate   Generate code from TypeSpec files
@@ -293,12 +462,21 @@ Generate Options:
   -o, --output <dir>    Output directory (default: generated)
   -s, --side <side>     Generate client, server, or both (default: both)
   -p, --package <name>  Package name for generated code (default: api)
+  -w, --watch           Watch input files and regenerate on changes
+
+Watch Mode:
+  When --watch is specified, the generator will:
+  - Run initial code generation
+  - Monitor all input .tsp files for changes
+  - Automatically regenerate when files change
+  - Continue until Ctrl+C is pressed
 
 Examples:
-  adi run adi.tsp-gen generate api.tsp -l python
-  adi run adi.tsp-gen generate *.tsp -l typescript -o src/generated -s client
-  adi run adi.tsp-gen generate main.tsp -l rust -p my_api
-  adi run adi.tsp-gen generate spec.tsp -l openapi -p "My API v1""#;
+  adi tsp-gen generate api.tsp -l python
+  adi tsp-gen generate *.tsp -l typescript -o src/generated -s client
+  adi tsp-gen generate main.tsp -l rust -p my_api
+  adi tsp-gen generate spec.tsp -l openapi
+  adi tsp-gen generate api.tsp -l typescript -o ./out --watch"#;
     Ok(help.to_string())
 }
 

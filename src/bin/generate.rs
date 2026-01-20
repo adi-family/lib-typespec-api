@@ -1,13 +1,22 @@
 //! TypeSpec Code Generator CLI
 
 use anyhow::{Context, Result};
+use chrono::Local;
 use clap::Parser;
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashSet;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
+use std::time::Duration;
 use typespec_api::{
     codegen::{Generator, Language, Side},
     parse, TypeSpecFile,
 };
+
+/// Global flag for watch mode termination
+static RUNNING: AtomicBool = AtomicBool::new(true);
 
 #[derive(Parser)]
 #[command(name = "tsp-gen")]
@@ -32,6 +41,10 @@ struct Cli {
     /// Package name for generated code
     #[arg(short, long, default_value = "api")]
     package: String,
+
+    /// Watch input files and regenerate on changes
+    #[arg(short, long)]
+    watch: bool,
 }
 
 /// Recursively resolve imports from a TypeSpec file
@@ -100,9 +113,8 @@ fn resolve_imports(
     Ok(combined)
 }
 
-fn main() -> Result<()> {
-    let cli = Cli::parse();
-
+/// Perform a single generation run
+fn do_generate(cli: &Cli) -> Result<Vec<String>> {
     // Parse all input files with import resolution
     let mut combined = TypeSpecFile::default();
     let mut resolved = HashSet::new();
@@ -148,10 +160,130 @@ fn main() -> Result<()> {
     let generator = Generator::new(&combined, &output_dir, &cli.package);
     let generated = generator.generate(cli.language, cli.side)?;
 
-    println!("Generated {} files:", generated.len());
-    for path in &generated {
-        println!("  {}", path);
+    Ok(generated)
+}
+
+/// Run in watch mode
+fn run_watch(cli: &Cli) -> Result<()> {
+    // Reset running flag
+    RUNNING.store(true, Ordering::SeqCst);
+
+    // Set up Ctrl+C handler
+    let _ = ctrlc::set_handler(|| {
+        RUNNING.store(false, Ordering::SeqCst);
+    });
+
+    // Collect directories to watch (parent dirs of input files)
+    let watch_dirs: HashSet<PathBuf> = cli
+        .input
+        .iter()
+        .filter_map(|f| {
+            f.canonicalize()
+                .ok()
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        })
+        .collect();
+
+    if watch_dirs.is_empty() {
+        anyhow::bail!("No valid directories to watch");
     }
 
+    // Initial generation
+    println!("TypeSpec Generator - Watch Mode");
+    println!("================================\n");
+
+    print!("Running initial generation... ");
+    let _ = io::stdout().flush();
+
+    match do_generate(cli) {
+        Ok(files) => {
+            println!("done");
+            println!("Generated {} files:", files.len());
+            for path in &files {
+                println!("  {}", path);
+            }
+            println!();
+        }
+        Err(e) => println!("failed\nError: {}\n", e),
+    }
+
+    println!(
+        "Watching {} director{} for changes:",
+        watch_dirs.len(),
+        if watch_dirs.len() == 1 { "y" } else { "ies" }
+    );
+    for dir in &watch_dirs {
+        println!("  {}", dir.display());
+    }
+    println!("\nPress Ctrl+C to stop\n");
+
+    // Create watcher
+    let (tx, rx) = mpsc::channel();
+    let mut watcher = RecommendedWatcher::new(
+        move |res| {
+            let _ = tx.send(res);
+        },
+        Config::default().with_poll_interval(Duration::from_millis(500)),
+    )?;
+
+    // Watch all directories
+    for dir in &watch_dirs {
+        watcher.watch(dir, RecursiveMode::Recursive)?;
+    }
+
+    // Watch loop
+    while RUNNING.load(Ordering::SeqCst) {
+        match rx.recv_timeout(Duration::from_millis(100)) {
+            Ok(Ok(event)) => {
+                // Filter for .tsp file changes
+                let tsp_changed = event
+                    .paths
+                    .iter()
+                    .any(|p| p.extension().map(|e| e == "tsp").unwrap_or(false));
+
+                if tsp_changed {
+                    let timestamp = Local::now().format("%H:%M:%S");
+                    println!("[{}] Change detected, regenerating...", timestamp);
+
+                    match do_generate(cli) {
+                        Ok(files) => {
+                            println!("Generated {} files:", files.len());
+                            for path in &files {
+                                println!("  {}", path);
+                            }
+                            println!();
+                        }
+                        Err(e) => println!("Error: {}\n", e),
+                    }
+                }
+            }
+            Ok(Err(e)) => {
+                eprintln!("Watch error: {}", e);
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                // Normal timeout, continue loop
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                break;
+            }
+        }
+    }
+
+    println!("\nWatch stopped.");
     Ok(())
+}
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    if cli.watch {
+        run_watch(&cli)
+    } else {
+        let generated = do_generate(&cli)?;
+        println!("Generated {} files:", generated.len());
+        for path in &generated {
+            println!("  {}", path);
+        }
+        Ok(())
+    }
 }

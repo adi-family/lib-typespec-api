@@ -141,7 +141,25 @@ fn generate_client(file: &TypeSpecFile) -> Result<String, CodegenError> {
     writeln!(out, " * DO NOT EDIT.")?;
     writeln!(out, " */")?;
     writeln!(out)?;
-    writeln!(out, "import type * as Models from './models';")?;
+
+    // Collect all model and enum names for imports
+    let model_names: Vec<_> = file.models().map(|m| m.name.as_str()).collect();
+    let enum_names: Vec<_> = file.enums().map(|e| e.name.as_str()).collect();
+
+    if !model_names.is_empty() {
+        writeln!(
+            out,
+            "import type {{ {} }} from './models';",
+            model_names.join(", ")
+        )?;
+    }
+    if !enum_names.is_empty() {
+        writeln!(
+            out,
+            "import {{ {} }} from './enums';",
+            enum_names.join(", ")
+        )?;
+    }
     writeln!(out)?;
 
     // Base client
@@ -337,7 +355,25 @@ fn generate_server(file: &TypeSpecFile) -> Result<String, CodegenError> {
     writeln!(out, " * Implement the abstract methods in a subclass.")?;
     writeln!(out, " */")?;
     writeln!(out)?;
-    writeln!(out, "import type * as Models from './models';")?;
+
+    // Collect all model and enum names for imports
+    let model_names: Vec<_> = file.models().map(|m| m.name.as_str()).collect();
+    let enum_names: Vec<_> = file.enums().map(|e| e.name.as_str()).collect();
+
+    if !model_names.is_empty() {
+        writeln!(
+            out,
+            "import type {{ {} }} from './models';",
+            model_names.join(", ")
+        )?;
+    }
+    if !enum_names.is_empty() {
+        writeln!(
+            out,
+            "import {{ {} }} from './enums';",
+            enum_names.join(", ")
+        )?;
+    }
     writeln!(out)?;
 
     for iface in file.interfaces() {

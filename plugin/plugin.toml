@@ -1,10 +1,10 @@
 [plugin]
 id = "adi.tsp-gen"
 name = "TypeSpec Generator"
-version = "0.1.0"
+version = "0.2.1"
 type = "extension"
 author = "ADI Team"
-description = "Generate code from TypeSpec definitions (Python, TypeScript, Rust, OpenAPI)"
+description = "Generate code from TypeSpec definitions with file watching (Python, TypeScript, Rust, OpenAPI)"
 min_host_version = "0.8.0"
 
 [cli]
@@ -21,4 +21,4 @@ description = "CLI commands for TypeSpec code generation"
 categories = ["codegen", "api", "typespec", "openapi"]
 
 [binary]
-name = "tsp_gen_plugin"
+name = "plugin"
